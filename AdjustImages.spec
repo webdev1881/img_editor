@@ -5,7 +5,7 @@ a = Analysis(
     ['adjust_images_standalone.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('scale_emulator.py', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

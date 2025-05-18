@@ -41,7 +41,9 @@ def build_exe():
         "--noconfirm",
         "--onefile",  # Создаем один исполняемый файл вместо директории
         "--windowed",
-        "--name", "AdjustImages",
+        "--name", "TS-5 Images",
+        "--add-data", f"scale_emulator.py{os.pathsep}.",  # Добавляем модуль эмулятора весов
+        "--icon=icon.ico",  # Добавляем иконку
         "adjust_images_standalone.py"
     ]
     

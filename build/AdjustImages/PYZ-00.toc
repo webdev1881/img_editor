@@ -1272,6 +1272,7 @@
   ('runpy',
    'C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\lib\\runpy.py',
    'PYMODULE'),
+  ('scale_emulator', 'D:\\Code\\img_editor\\scale_emulator.py', 'PYMODULE'),
   ('secrets',
    'C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\lib\\secrets.py',
    'PYMODULE'),

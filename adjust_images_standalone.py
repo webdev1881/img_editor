@@ -14,6 +14,18 @@ import json
 import warnings
 import traceback
 
+
+# Импорт эмулятора весов
+try:
+    from scale_emulator import ScaleEmulator
+except ImportError:
+    # Если файл не найден, создаем заглушку
+    class ScaleEmulator:
+        def __init__(self, parent_notebook, output_dir="output"):
+            tab = ttk.Frame(parent_notebook)
+            parent_notebook.add(tab, text="Эмулятор весов")
+            ttk.Label(tab, text="Модуль эмулятора весов не найден", font=('Arial', 14)).pack(pady=50)
+
 # Импортируем PIL и OpenCV с обработкой ошибок
 try:
     from PIL import Image
@@ -1119,9 +1131,9 @@ def main():
 class AdjustImagesGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Adjust Images Tool")
-        self.root.geometry("800x700")
-        self.root.minsize(800, 700)
+        self.root.title("TS-5 Images Tool (SMK)")
+        # self.root.geometry("800x400")
+        self.root.minsize(800, 600)
         
         # Определяем путь к директории исполняемого файла
         if getattr(sys, 'frozen', False):
@@ -1142,7 +1154,7 @@ class AdjustImagesGUI:
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Заголовок
-        header = ttk.Label(main_frame, text="Настройте параметры обработки изображений", style="Header.TLabel")
+        header = ttk.Label(main_frame, text="Параметры обработки изображений", style="Header.TLabel")
         header.pack(pady=(0, 20))
         
         # Создаем notebook (вкладки)
@@ -1162,9 +1174,9 @@ class AdjustImagesGUI:
         notebook.add(processing_tab, text="Обработка изображений")
         
         # Вкладка 4: Примеры и справка
-        help_tab = ttk.Frame(notebook, padding=10)
-        notebook.add(help_tab, text="Примеры и справка")
-        
+        # help_tab = ttk.Frame(notebook, padding=10)
+        # notebook.add(help_tab, text="Примеры и справка")
+
         # Фрейм для вывода команды и логов
         output_frame = ttk.LabelFrame(main_frame, text="Лог выполнения", padding=10)
         output_frame.pack(fill=tk.BOTH, expand=True, pady=10)
@@ -1192,18 +1204,22 @@ class AdjustImagesGUI:
         self.setup_basic_tab(basic_tab)
         self.setup_loading_tab(loading_tab)
         self.setup_processing_tab(processing_tab)
-        self.setup_help_tab(help_tab)
+        # self.setup_help_tab(help_tab)
         
+        # Добавляем эмулятор весов (перед выводом приветственного сообщения)
+        # self.scale_emulator = ScaleEmulator(notebook, self.output_dir.get())
+
+
         # Выводим приветственное сообщение
-        self.log_text.insert(tk.END, "Добро пожаловать в Adjust Images Tool!\n")
-        self.log_text.insert(tk.END, "Настройте параметры и нажмите 'Запустить обработку'.\n")
+        # self.log_text.insert(tk.END, "Добро пожаловать в Adjust Images Tool!\n")
+        self.log_text.insert(tk.END, "'Запустить обработку'.\n")
         
     def init_variables(self):
         # Основные настройки
         self.input_dir = tk.StringVar(value=os.path.join(self.application_path, "input"))
         self.output_dir = tk.StringVar(value=os.path.join(self.application_path, "output"))
         self.ratio = tk.DoubleVar(value=1.0)
-        self.ratio_custom = tk.StringVar(value="1.0")
+        self.ratio_custom = tk.StringVar(value="1.33")
         self.ratio_option = tk.StringVar(value="custom")
         self.color = tk.StringVar(value="255,255,255")
         
@@ -1228,7 +1244,7 @@ class AdjustImagesGUI:
     def setup_basic_tab(self, parent):
         # Директории ввода и вывода
         dir_frame = ttk.LabelFrame(parent, text="Директории", padding=10)
-        dir_frame.pack(fill=tk.X, pady=5)
+        dir_frame.pack(fill=tk.X, pady=1)
         
         ttk.Label(dir_frame, text="Входная директория:").grid(row=0, column=0, sticky=tk.W, pady=5)
         input_entry = ttk.Entry(dir_frame, textvariable=self.input_dir, width=40)
@@ -1245,7 +1261,7 @@ class AdjustImagesGUI:
         ratio_frame.pack(fill=tk.X, pady=5)
         
         ttk.Radiobutton(ratio_frame, text="1:1 (квадрат)", variable=self.ratio_option, value="1:1", 
-                       command=lambda: self.set_ratio(1.0)).grid(row=0, column=0, sticky=tk.W, pady=2)
+                       command=lambda: self.set_ratio(1.)).grid(row=0, column=0, sticky=tk.W, pady=2)
         
         ttk.Radiobutton(ratio_frame, text="4:3", variable=self.ratio_option, value="4:3", 
                        command=lambda: self.set_ratio(4.0/3.0)).grid(row=1, column=0, sticky=tk.W, pady=2)
@@ -1262,7 +1278,7 @@ class AdjustImagesGUI:
         custom_entry.grid(row=4, column=1, padx=5, pady=2, sticky=tk.W)
         custom_entry.bind("<KeyRelease>", lambda e: self.update_ratio_from_custom())
         
-        ttk.Label(ratio_frame, text="Примеры: 1.0 (1:1), 1.78 (16:9), 0.75 (3:4)").grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=5)
+        # ttk.Label(ratio_frame, text="Примеры: 1.0 (1:1), 1.78 (16:9), 0.75 (3:4)").grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=5)
         
         # Цвет заполнения
         color_frame = ttk.LabelFrame(parent, text="Цвет заполнения", padding=10)
@@ -1566,16 +1582,26 @@ class AdjustImagesGUI:
             self.run_button.config(state=tk.NORMAL)
 
 # Точка входа в программу
+# Точка входа в программу
 if __name__ == "__main__":
     # Создаем корневое окно
     root = tk.Tk()
     
     # Устанавливаем иконку (если доступна)
     try:
-        if os.path.exists("icon.ico"):
-            root.iconbitmap("icon.ico")
-    except:
-        pass
+        # Определяем путь к иконке
+        icon_path = "icon.ico"
+        
+        # Проверяем путь для скомпилированного EXE
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+            icon_path = os.path.join(base_dir, "icon.ico")
+        
+        # Если иконка существует, устанавливаем её
+        if os.path.exists(icon_path):
+            root.iconbitmap(icon_path)
+    except Exception as e:
+        print(f"Ошибка при установке иконки: {e}")
     
     # Создаем экземпляр приложения
     app = AdjustImagesGUI(root)
