@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import subprocess
 import threading
+import importlib.util
 
 class AdjustImagesGUI:
     def __init__(self, root):
@@ -11,6 +12,19 @@ class AdjustImagesGUI:
         self.root.title("Adjust Images Tool")
         self.root.geometry("800x700")
         self.root.minsize(800, 700)
+        
+        # Определяем путь к директории исполняемого файла
+        if getattr(sys, 'frozen', False):
+            self.application_path = os.path.dirname(sys.executable)
+        else:
+            self.application_path = os.path.dirname(os.path.abspath(__file__))
+        
+        # Проверяем наличие adjust_images.py
+        self.script_path = os.path.join(self.application_path, "adjust_images.py")
+        if not os.path.exists(self.script_path):
+            messagebox.showerror("Ошибка", f"Файл adjust_images.py не найден в директории {self.application_path}")
+            root.destroy()
+            return
         
         # Стиль
         style = ttk.Style()
@@ -86,33 +100,37 @@ class AdjustImagesGUI:
         
         # Обновляем командную строку
         self.update_command()
-    
+
     def init_variables(self):
-        # Основные настройки
-        self.input_dir = tk.StringVar(value="input")
-        self.output_dir = tk.StringVar(value="output")
-        self.ratio = tk.DoubleVar(value=1.0)
-        self.ratio_custom = tk.StringVar(value="1.0")
-        self.ratio_option = tk.StringVar(value="custom")
-        self.color = tk.StringVar(value="255,255,255")
+            # Основные настройки
+            self.input_dir = tk.StringVar(value=os.path.join(self.application_path, "input"))
+            self.output_dir = tk.StringVar(value=os.path.join(self.application_path, "output"))
+            self.ratio = tk.DoubleVar(value=1.0)
+            self.ratio_custom = tk.StringVar(value="1.0")
+            self.ratio_option = tk.StringVar(value="custom")
+            self.color = tk.StringVar(value="255,255,255")
+            
+            # Загрузка изображений
+            self.urls_option = tk.StringVar(value="none")
+            self.urls_file = tk.StringVar(value=os.path.join(self.application_path, "urls.txt"))
+            self.json_file = tk.StringVar(value=os.path.join(self.application_path, "inp.json"))
+            self.max_workers = tk.IntVar(value=5)
+            
+            # Обработка изображений
+            self.enhance = tk.BooleanVar(value=False)
+            self.smart_scale = tk.BooleanVar(value=False)
+            self.white_background = tk.BooleanVar(value=False)
+            self.scale_factor = tk.DoubleVar(value=1.5)
+            
+            # Визуализация
+            self.visualize = tk.BooleanVar(value=False)
+            self.visualize_file = tk.StringVar(value="")
+            self.visualize_output = tk.StringVar(value=os.path.join(self.application_path, "object_detected.jpg"))
+            
+            # Режим запуска
+            self.python_exe = tk.StringVar(value=sys.executable)
+            self.direct_import = tk.BooleanVar(value=True)
         
-        # Загрузка изображений
-        self.urls_option = tk.StringVar(value="none")
-        self.urls_file = tk.StringVar(value="urls.txt")
-        self.json_file = tk.StringVar(value="inp.json")
-        self.max_workers = tk.IntVar(value=5)
-        
-        # Обработка изображений
-        self.enhance = tk.BooleanVar(value=False)
-        self.smart_scale = tk.BooleanVar(value=False)
-        self.white_background = tk.BooleanVar(value=False)
-        self.scale_factor = tk.DoubleVar(value=1.5)
-        
-        # Визуализация
-        self.visualize = tk.BooleanVar(value=False)
-        self.visualize_file = tk.StringVar(value="")
-        self.visualize_output = tk.StringVar(value="object_detected.jpg")
-    
     def setup_basic_tab(self, parent):
         # Директории ввода и вывода
         dir_frame = ttk.LabelFrame(parent, text="Директории", padding=10)
@@ -174,25 +192,25 @@ class AdjustImagesGUI:
         option_frame.pack(fill=tk.X, pady=5)
         
         ttk.Radiobutton(option_frame, text="Только локальные изображения из входной директории", 
-                       variable=self.urls_option, value="none").grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=5)
+                        variable=self.urls_option, value="none").grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=5)
         
         ttk.Radiobutton(option_frame, text="Загрузить из URLs файла:", 
-                       variable=self.urls_option, value="urls").grid(row=1, column=0, sticky=tk.W, pady=5)
+                        variable=self.urls_option, value="urls").grid(row=1, column=0, sticky=tk.W, pady=5)
         
         urls_entry = ttk.Entry(option_frame, textvariable=self.urls_file, width=40)
         urls_entry.grid(row=1, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
         
         ttk.Button(option_frame, text="Обзор...", 
-                  command=lambda: self.browse_file(self.urls_file, [("Text files", "*.txt"), ("All files", "*.*")])).grid(row=1, column=2, padx=5, pady=5)
+                    command=lambda: self.browse_file(self.urls_file, [("Text files", "*.txt"), ("All files", "*.*")])).grid(row=1, column=2, padx=5, pady=5)
         
         ttk.Radiobutton(option_frame, text="Преобразовать JSON в URLs и загрузить:", 
-                       variable=self.urls_option, value="json").grid(row=2, column=0, sticky=tk.W, pady=5)
+                        variable=self.urls_option, value="json").grid(row=2, column=0, sticky=tk.W, pady=5)
         
         json_entry = ttk.Entry(option_frame, textvariable=self.json_file, width=40)
         json_entry.grid(row=2, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
         
         ttk.Button(option_frame, text="Обзор...", 
-                  command=lambda: self.browse_file(self.json_file, [("JSON files", "*.json"), ("All files", "*.*")])).grid(row=2, column=2, padx=5, pady=5)
+                    command=lambda: self.browse_file(self.json_file, [("JSON files", "*.json"), ("All files", "*.*")])).grid(row=2, column=2, padx=5, pady=5)
         
         # Дополнительные параметры загрузки
         workers_frame = ttk.LabelFrame(parent, text="Дополнительные параметры загрузки", padding=10)
@@ -203,20 +221,20 @@ class AdjustImagesGUI:
         workers_spinbox.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
         
         ttk.Label(workers_frame, text="(увеличьте для более быстрой загрузки, но следите за нагрузкой)").grid(row=0, column=2, sticky=tk.W, pady=5)
-    
+
     def setup_processing_tab(self, parent):
         # Опции обработки
         option_frame = ttk.LabelFrame(parent, text="Опции обработки изображений", padding=10)
         option_frame.pack(fill=tk.X, pady=5)
         
         ttk.Checkbutton(option_frame, text="Улучшить качество изображений (увеличить резкость, контраст)", 
-                       variable=self.enhance).grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=5)
+                        variable=self.enhance).grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=5)
         
         ttk.Checkbutton(option_frame, text="Использовать умное масштабирование (для обычных изображений)", 
-                       variable=self.smart_scale, command=self.toggle_smart_scale).grid(row=1, column=0, columnspan=2, sticky=tk.W, pady=5)
+                        variable=self.smart_scale, command=self.toggle_smart_scale).grid(row=1, column=0, columnspan=2, sticky=tk.W, pady=5)
         
         ttk.Checkbutton(option_frame, text="Специальный режим для объектов на белом фоне", 
-                       variable=self.white_background, command=self.toggle_white_background).grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=5)
+                        variable=self.white_background, command=self.toggle_white_background).grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=5)
         
         ttk.Label(option_frame, text="Масштаб увеличения объекта:").grid(row=3, column=0, sticky=tk.W, pady=5)
         scale_spinbox = ttk.Spinbox(option_frame, from_=1.0, to=3.0, increment=0.1, width=5, textvariable=self.scale_factor)
@@ -227,20 +245,27 @@ class AdjustImagesGUI:
         vis_frame.pack(fill=tk.X, pady=5)
         
         ttk.Checkbutton(vis_frame, text="Визуализировать обнаружение объекта на изображении", 
-                       variable=self.visualize, command=self.toggle_visualize).grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=5)
+                        variable=self.visualize, command=self.toggle_visualize).grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=5)
         
         ttk.Label(vis_frame, text="Файл для визуализации:").grid(row=1, column=0, sticky=tk.W, pady=5)
         vis_entry = ttk.Entry(vis_frame, textvariable=self.visualize_file, width=40)
         vis_entry.grid(row=1, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
         ttk.Button(vis_frame, text="Обзор...", 
-                  command=lambda: self.browse_file(self.visualize_file, [("Image files", "*.jpg;*.jpeg;*.png"), ("All files", "*.*")])).grid(row=1, column=2, padx=5, pady=5)
+                    command=lambda: self.browse_file(self.visualize_file, [("Image files", "*.jpg;*.jpeg;*.png"), ("All files", "*.*")])).grid(row=1, column=2, padx=5, pady=5)
         
         ttk.Label(vis_frame, text="Сохранить результат в:").grid(row=2, column=0, sticky=tk.W, pady=5)
         vis_out_entry = ttk.Entry(vis_frame, textvariable=self.visualize_output, width=40)
         vis_out_entry.grid(row=2, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
         ttk.Button(vis_frame, text="Обзор...", 
-                  command=lambda: self.browse_file(self.visualize_output, [("Image files", "*.jpg;*.jpeg;*.png"), ("All files", "*.*")], save=True)).grid(row=2, column=2, padx=5, pady=5)
-    
+                    command=lambda: self.browse_file(self.visualize_output, [("Image files", "*.jpg;*.jpeg;*.png"), ("All files", "*.*")], save=True)).grid(row=2, column=2, padx=5, pady=5)
+        
+        # Режим запуска
+        run_frame = ttk.LabelFrame(parent, text="Режим запуска (для продвинутых пользователей)", padding=10)
+        run_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Checkbutton(run_frame, text="Использовать прямой импорт (рекомендуется для EXE-файла)", 
+                        variable=self.direct_import).grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=5)
+
     def setup_help_tab(self, parent):
         help_text = """
         # Обработка изображений - Справка и примеры
@@ -248,33 +273,33 @@ class AdjustImagesGUI:
         ## Основные использования:
 
         1. **Базовая обработка изображений из локальной папки**:
-           - Укажите входную и выходную директории
-           - Выберите соотношение сторон
-           - Нажмите "Запустить обработку"
+            - Укажите входную и выходную директории
+            - Выберите соотношение сторон
+            - Нажмите "Запустить обработку"
         
         2. **Загрузка изображений из URL**:
-           - Выберите "Загрузить из URLs файла"
-           - Укажите путь к файлу urls.txt (формат: "article,url" по одной паре на строку)
-           - Выберите соотношение сторон и другие настройки
-           - Нажмите "Запустить обработку"
+            - Выберите "Загрузить из URLs файла"
+            - Укажите путь к файлу urls.txt (формат: "article,url" по одной паре на строку)
+            - Выберите соотношение сторон и другие настройки
+            - Нажмите "Запустить обработку"
         
         3. **Загрузка изображений из JSON**:
-           - Выберите "Преобразовать JSON в URLs и загрузить"
-           - Укажите путь к файлу inp.json
-           - Выберите соотношение сторон и другие настройки
-           - Нажмите "Запустить обработку"
+            - Выберите "Преобразовать JSON в URLs и загрузить"
+            - Укажите путь к файлу inp.json
+            - Выберите соотношение сторон и другие настройки
+            - Нажмите "Запустить обработку"
         
         4. **Улучшение качества изображений на белом фоне**:
-           - Включите "Специальный режим для объектов на белом фоне"
-           - Установите масштаб увеличения объекта (1.5-2.0 обычно дает хорошие результаты)
-           - Выберите соотношение сторон
-           - Нажмите "Запустить обработку"
+            - Включите "Специальный режим для объектов на белом фоне"
+            - Установите масштаб увеличения объекта (1.5-2.0 обычно дает хорошие результаты)
+            - Выберите соотношение сторон
+            - Нажмите "Запустить обработку"
         
         5. **Отладка обнаружения объектов**:
-           - Включите "Визуализировать обнаружение объекта"
-           - Выберите изображение для визуализации
-           - Укажите путь для сохранения результата
-           - Нажмите "Запустить обработку"
+            - Включите "Визуализировать обнаружение объекта"
+            - Выберите изображение для визуализации
+            - Укажите путь для сохранения результата
+            - Нажмите "Запустить обработку"
         
         ## Форматы файлов:
         
@@ -299,13 +324,13 @@ class AdjustImagesGUI:
         
         text_widget.insert(tk.END, help_text)
         text_widget.config(state=tk.DISABLED)  # Только для чтения
-    
+
     def browse_directory(self, var):
         directory = filedialog.askdirectory()
         if directory:
             var.set(directory)
             self.update_command()
-    
+
     def browse_file(self, var, filetypes, save=False):
         if save:
             filename = filedialog.asksaveasfilename(filetypes=filetypes)
@@ -314,12 +339,12 @@ class AdjustImagesGUI:
         if filename:
             var.set(filename)
             self.update_command()
-    
+
     def set_ratio(self, value):
         self.ratio.set(value)
         self.ratio_custom.set(str(value))
         self.update_command()
-    
+
     def update_ratio_from_custom(self):
         try:
             value = float(self.ratio_custom.get())
@@ -327,26 +352,32 @@ class AdjustImagesGUI:
             self.update_command()
         except ValueError:
             pass
-    
+
     def set_color(self, color):
         self.color.set(color)
         self.update_command()
-    
+
     def toggle_smart_scale(self):
         if self.smart_scale.get() and self.white_background.get():
             self.white_background.set(False)
         self.update_command()
-    
+
     def toggle_white_background(self):
         if self.white_background.get() and self.smart_scale.get():
             self.smart_scale.set(False)
         self.update_command()
-    
+
     def toggle_visualize(self):
         self.update_command()
-    
+
     def update_command(self):
-        cmd = ["python", "adjust_images.py"]
+        if self.direct_import:
+            # Для режима прямого импорта команда генерируется для справки,
+            # но будет использоваться другой механизм запуска
+            cmd = ["python", self.script_path]
+        else:
+            # Для режима с Python используем путь к Python интерпретатору
+            cmd = [self.python_exe, self.script_path]
         
         # Если выбрана визуализация
         if self.visualize.get() and self.visualize_file.get():
@@ -388,19 +419,32 @@ class AdjustImagesGUI:
         self.command_text.insert(tk.END, " ".join(cmd))
     
     def run_command(self):
-        # Получаем команду из текстового поля
-        command = self.command_text.get(1.0, tk.END).strip()
+        # Создаем папки ввода и вывода, если они не существуют
+        input_dir = self.input_dir.get()
+        output_dir = self.output_dir.get()
+        
+        os.makedirs(input_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
         
         # Очищаем лог
         self.log_text.delete(1.0, tk.END)
-        self.log_text.insert(tk.END, f"Запуск команды: {command}\n\n")
         
-        # Запускаем команду в отдельном потоке
-        threading.Thread(target=self.execute_command, args=(command,), daemon=True).start()
+        # Получаем команду
+        command = self.command_text.get(1.0, tk.END).strip()
+        self.log_text.insert(tk.END, f"Команда: {command}\n\n")
+        
+        # Отключаем кнопку запуска во время обработки
+        self.run_button.config(state=tk.DISABLED)
+        
+        # Запускаем обработку в отдельном потоке
+        if self.direct_import:
+            threading.Thread(target=self.run_direct_import, daemon=True).start()
+        else:
+            threading.Thread(target=self.run_subprocess, args=(command,), daemon=True).start()
     
-    def execute_command(self, command):
+    def run_subprocess(self, command):
         try:
-            # Запускаем процесс
+            # Запускаем процесс через подпроцесс
             process = subprocess.Popen(
                 command, 
                 shell=True, 
@@ -430,6 +474,75 @@ class AdjustImagesGUI:
         except Exception as e:
             self.log_text.insert(tk.END, f"\nОшибка при запуске команды: {str(e)}\n")
             messagebox.showerror("Ошибка", f"Ошибка при запуске команды: {str(e)}")
+        
+        finally:
+            # Включаем кнопку запуска
+            self.run_button.config(state=tk.NORMAL)
+    
+    def run_direct_import(self):
+        try:
+            # Импортируем скрипт adjust_images.py
+            spec = importlib.util.spec_from_file_location("adjust_images", self.script_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            
+            # Создаем параметры командной строки
+            import sys
+            import shlex
+            
+            # Получаем команду из текстового поля
+            command = self.command_text.get(1.0, tk.END).strip()
+            
+            # Удаляем "python adjust_images.py" из начала команды
+            if command.startswith("python"):
+                command = command.split(' ', 2)[2]
+            
+            # Сохраняем оригинальные аргументы
+            original_argv = sys.argv.copy()
+            
+            # Устанавливаем новые аргументы
+            sys.argv = ["adjust_images.py"] + shlex.split(command)
+            
+            # Создаем захват вывода
+            from io import StringIO
+            import contextlib
+            
+            f = StringIO()
+            with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+                try:
+                    module.main()  # Вызываем функцию main из импортированного модуля
+                    success = True
+                except Exception as e:
+                    self.log_text.insert(tk.END, f"Ошибка при выполнении скрипта: {str(e)}\n")
+                    import traceback
+                    self.log_text.insert(tk.END, traceback.format_exc())
+                    success = False
+            
+            # Восстанавливаем оригинальные аргументы
+            sys.argv = original_argv
+            
+            # Вывод
+            output = f.getvalue()
+            self.log_text.insert(tk.END, output)
+            self.log_text.see(tk.END)
+            
+            # Показываем результат
+            if success:
+                self.log_text.insert(tk.END, "\nОбработка успешно выполнена!\n")
+                messagebox.showinfo("Успех", "Обработка изображений завершена успешно!")
+            else:
+                self.log_text.insert(tk.END, "\nОбработка завершилась с ошибкой!\n")
+                messagebox.showerror("Ошибка", "Обработка изображений завершилась с ошибкой!")
+            
+        except Exception as e:
+            self.log_text.insert(tk.END, f"\nОшибка при запуске скрипта: {str(e)}\n")
+            import traceback
+            self.log_text.insert(tk.END, traceback.format_exc())
+            messagebox.showerror("Ошибка", f"Ошибка при запуске скрипта: {str(e)}")
+        
+        finally:
+            # Включаем кнопку запуска
+            self.run_button.config(state=tk.NORMAL)
 
 if __name__ == "__main__":
     root = tk.Tk()

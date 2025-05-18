@@ -1084,3 +1084,95 @@ if __name__ == "__main__":
         print(f"Включен специальный режим для белого фона с масштабом {args.scale_factor}")
     
     process_directory(args.input, args.output, args.ratio, fill_color, file_mapping, args.enhance, args.smart_scale, args.white_background, args.scale_factor)
+
+def main():
+    """
+    Основная функция для запуска из GUI через прямой импорт
+    """
+    parser = argparse.ArgumentParser(description='Изменение пропорций изображений путем добавления полей')
+    
+    # Основные параметры
+    parser.add_argument('--ratio', type=float, default=1.0, help='Целевое соотношение сторон (ширина/высота), например 16/9=1.78')
+    parser.add_argument('--color', type=str, default='255,255,255', help='Цвет заполнения в формате r,g,b (по умолчанию белый: 255,255,255)')
+    parser.add_argument('--input', type=str, default='input', help='Директория с входными изображениями (по умолчанию: input)')
+    parser.add_argument('--output', type=str, default='output', help='Директория для сохранения обработанных изображений (по умолчанию: output)')
+    
+    # Параметры для загрузки изображений из URL
+    parser.add_argument('--urls', nargs='+', help='Список URL для загрузки изображений')
+    parser.add_argument('--urls-file', type=str, help='Файл со списком URL в формате "article,url" (по одной паре на строку)')
+    parser.add_argument('--max-workers', type=int, default=5, help='Максимальное количество параллельных загрузок (по умолчанию: 5)')
+    
+    # Параметр для улучшения качества изображений
+    parser.add_argument('--enhance', action='store_true', help='Улучшить качество изображений с помощью ИИ-алгоритмов')
+    
+    # Параметры для работы с JSON
+    parser.add_argument('--json-file', type=str, help='Путь к JSON файлу для преобразования в urls.txt')
+    parser.add_argument('--json-to-urls', action='store_true', help='Преобразовать JSON файл в urls.txt')
+    
+    # Параметр для умного масштабирования
+    parser.add_argument('--smart-scale', action='store_true', help='Использовать умное масштабирование для равномерного распределения объекта')
+    
+    # Параметры для специального режима белого фона
+    parser.add_argument('--white-background', action='store_true', help='Использовать специальный режим для объектов на белом фоне')
+    parser.add_argument('--scale-factor', type=float, default=1.5, help='Масштаб увеличения объекта (1.0 = без изменений, по умолчанию: 1.5)')
+    
+    # Параметр для визуализации обнаруженных объектов
+    parser.add_argument('--visualize-object', type=str, help='Визуализировать обнаруженный объект на указанном изображении')
+    parser.add_argument('--visualize-output', type=str, help='Путь для сохранения визуализации (по умолчанию: object_detected.jpg)')
+    
+    args = parser.parse_args()
+    
+    # Визуализация обнаруженного объекта, если указано
+    if args.visualize_object:
+        output_path = args.visualize_output if args.visualize_output else "object_detected.jpg"
+        visualize_object_detection(args.visualize_object, output_path)
+        return
+    
+    # Преобразуем строку цвета в кортеж RGB
+    fill_color = parse_color(args.color)
+    
+    # Проверяем, нужно ли преобразовать JSON в URLs
+    if args.json_file and args.json_to_urls:
+        output_urls_file = args.urls_file if args.urls_file else "urls.txt"
+        transform_json_to_urls(args.json_file, output_urls_file)
+        # Если не нужно обрабатывать изображения, выходим
+        if not any([args.urls, output_urls_file, os.path.exists(args.input)]):
+            return
+        
+        # Устанавливаем urls_file для дальнейшей обработки
+        args.urls_file = output_urls_file
+    
+    # Проверяем, нужно ли загрузить изображения по URL
+    urls_data = []
+    file_mapping = None
+    
+    if args.urls:
+        # Простой список URL без article
+        urls_data.extend(args.urls)
+    
+    if args.urls_file:
+        try:
+            # Парсим файл с URLs в формате "article,url"
+            file_urls = parse_urls_file(args.urls_file)
+            urls_data.extend(file_urls)
+        except Exception as e:
+            print(f"Ошибка при чтении файла URL: {str(e)}")
+    
+    # Загружаем изображения, если указаны URL
+    if urls_data:
+        print(f"Загрузка {len(urls_data)} изображений...")
+        file_mapping = download_images_from_urls(urls_data, args.input, args.max_workers)
+    
+    # Обрабатываем директорию с изображениями
+    print(f"Обработка изображений с соотношением сторон {args.ratio}...")
+    if args.enhance:
+        print("Включено улучшение качества изображений")
+    if args.smart_scale:
+        print("Включено умное масштабирование для равномерного распределения объекта")
+    if args.white_background:
+        print(f"Включен специальный режим для белого фона с масштабом {args.scale_factor}")
+    
+    process_directory(args.input, args.output, args.ratio, fill_color, file_mapping, args.enhance, args.smart_scale, args.white_background, args.scale_factor)
+
+if __name__ == "__main__":
+    main()
